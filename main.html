@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hava Durumu Proqramı (Açarsız API)</title>
+    <style>
+        /* Səhifənin ümumi dizaynı */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #6dd5ed, #2193b0);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            color: #333;
+        }
+
+        /* Əsas qutu dizaynı */
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        h2 { margin-top: 0; color: #2c3e50; }
+
+        /* Axtarış bölməsi */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #2193b0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #176f87; }
+
+        /* Nəticə və xəta mesajları */
+        .weather-info { display: none; margin-top: 20px; }
+        .error { color: #e74c3c; margin-top: 15px; display: none; font-weight: bold; }
+        .loading { color: #2980b9; margin-top: 15px; display: none; font-weight: bold; }
+
+        /* Hava detalları */
+        .weather-info h3 { margin: 10px 0; font-size: 24px; color: #34495e; }
+        #weatherIcon { width: 100px; height: 100px; }
+        .temp { font-size: 45px; font-weight: bold; margin: 10px 0; }
+        .desc { font-size: 18px; text-transform: capitalize; color: #7f8c8d; margin-bottom: 20px; }
+        
+        .details {
+            display: flex;
+            justify-content: space-around;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .details-item { display: flex; flex-direction: column; align-items: center; }
+        .details-item span { font-weight: bold; margin-top: 5px; font-size: 16px; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Hava Durumu</h2>
+        
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="Şəhər adını yazın...">
+            <button onclick="getWeather()">Axtar</button>
+        </div>
+
+        <!-- Vəziyyət mesajları -->
+        <div class="loading" id="loadingMessage">Məlumat axtarılır...</div>
+        <div class="error" id="errorMessage">Şəhər tapılmadı! Adı düzgün yazın.</div>
+
+        <!-- Hava məlumatları bura düşəcək -->
+        <div class="weather-info" id="weatherInfo">
+            <h3 id="cityName">--</h3>
+            <img id="weatherIcon" src="" alt="Hava ikonu">
+            <div class="temp"><span id="temperature">0</span>°C</div>
+            <div class="desc" id="description">--</div>
+            
+            <div class="details">
+                <div class="details-item">
+                    Rütubət
+                    <span id="humidity">0%</span>
+                </div>
+                <div class="details-item">
+                    Külək
+                    <span id="wind">0 km/s</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enter düyməsi ilə axtarış etmək üçün
+        document.getElementById('cityInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                getWeather();
+            }
+        });
+
+        // Hava vəziyyəti kodlarını Azərbaycan dilinə və ikonlara çevirən funksiya (WMO kodları)
+        function getWeatherDetails(code) {
+            const wmoCodes = {
+                0: { desc: "Açıq səma", icon: "01d" },
+                1: { desc: "Əsasən aydın", icon: "02d" },
+                2: { desc: "Qismən buludlu", icon: "03d" },
+                3: { desc: "Buludlu", icon: "04d" },
+                45: { desc: "Duman", icon: "50d" },
+                48: { desc: "Qatı duman", icon: "50d" },
+                51: { desc: "Yüngül çiskin", icon: "09d" },
+                53: { desc: "Mötədil çiskin", icon: "09d" },
+                55: { desc: "Güclü çiskin", icon: "09d" },
+                56: { desc: "Dondurucu yüngül çiskin", icon: "09d" },
+                57: { desc: "Dondurucu güclü çiskin", icon: "09d" },
+                61: { desc: "Yüngül yağış", icon: "10d" },
+                63: { desc: "Mötədil yağış", icon: "10d" },
+                65: { desc: "Güclü yağış", icon: "10d" },
+                66: { desc: "Yüngül dondurucu yağış", icon: "13d" },
+                67: { desc: "Güclü dondurucu yağış", icon: "13d" },
+                71: { desc: "Yüngül qar", icon: "13d" },
+                73: { desc: "Mötədil qar", icon: "13d" },
+                75: { desc: "Güclü qar", icon: "13d" },
+                77: { desc: "Qar dənəcikləri", icon: "13d" },
+                80: { desc: "Yüngül leysan", icon: "09d" },
+                81: { desc: "Mötədil leysan", icon: "09d" },
+                82: { desc: "Güclü leysan", icon: "09d" },
+                85: { desc: "Yüngül qar leysanı", icon: "13d" },
+                86: { desc: "Güclü qar leysanı", icon: "13d" },
+                95: { desc: "Göy gurultusu", icon: "11d" },
+                96: { desc: "Göy gurultusu və yüngül dolu", icon: "11d" },
+                99: { desc: "Göy gurultusu və güclü dolu", icon: "11d" }
+            };
+            return wmoCodes[code] || { desc: "Bilinməyən", icon: "03d" };
+        }
+
+        async function getWeather() {
+            const city = document.getElementById('cityInput').value.trim();
+            const weatherInfo = document.getElementById('weatherInfo');
+            const errorMessage = document.getElementById('errorMessage');
+            const loadingMessage = document.getElementById('loadingMessage');
+
+            if (!city) {
+                alert('Zəhmət olmasa bir şəhər adı daxil edin!');
+                return;
+            }
+
+            // Axtarış prosesi başlayır - UI yeniləmələri
+            weatherInfo.style.display = 'none';
+            errorMessage.style.display = 'none';
+            loadingMessage.style.display = 'block';
+
+            try {
+                // 1. Şəhərin koordinatlarını (Lat/Lon) tapmaq üçün Geocoding API
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1&language=en&format=json`;
+                const geoResponse = await fetch(geoUrl);
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error('Şəhər tapılmadı');
+                }
+
+                const { latitude, longitude, name, country } = geoData.results[0];
+
+                // 2. Tapılmış koordinatlara görə hava vəziyyətini çəkmək üçün Weather API
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto`;
+                const weatherResponse = await fetch(weatherUrl);
+                const weatherData = await weatherResponse.json();
+                
+                const current = weatherData.current;
+
+                // Hava kodu əsasında tərcümə və ikonu təyin edirik
+                const details = getWeatherDetails(current.weather_code);
+
+                // Məlumatları HTML elementlərinə yerləşdiririk
+                document.getElementById('cityName').innerText = `${name}, ${country || ''}`;
+                document.getElementById('temperature').innerText = Math.round(current.temperature_2m);
+                document.getElementById('description').innerText = details.desc;
+                document.getElementById('humidity').innerText = `${current.relative_humidity_2m}%`;
+                document.getElementById('wind').innerText = `${Math.round(current.wind_speed_10m)} km/s`;
+
+                // İkonu göstəririk
+                document.getElementById('weatherIcon').src = `https://openweathermap.org/img/wn/${details.icon}@4x.png`;
+
+                // Yüklənməni gizlədib, nəticəni göstəririk
+                loadingMessage.style.display = 'none';
+                weatherInfo.style.display = 'block';
+
+            } catch (error) {
+                // Xəta olarsa
+                loadingMessage.style.display = 'none';
+                weatherInfo.style.display = 'none';
+                errorMessage.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
